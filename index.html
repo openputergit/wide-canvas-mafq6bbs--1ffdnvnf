@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GeoPin Reminder</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
+    <script src="https://unpkg.com/three@0.157.0/build/three.min.js"></script>
+    <script src="https://unpkg.com/@googlemaps/js-api-loader@1.16.2/dist/index.min.js"></script>
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
+        
+        * {
+            font-family: 'Poppins', sans-serif;
+        }
+        
+        .map-container {
+            height: 300px;
+            width: 100%;
+        }
+        
+        .three-background {
+            position: fixed;
+            top: 0;
+            left: 0;
+            z-index: -1;
+        }
+        
+        .glass-effect {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-white min-h-screen">
+    <canvas class="three-background"></canvas>
+    
+    <div class="container mx-auto px-4 py-8">
+        <header class="text-center mb-10">
+            <h1 class="text-4xl font-bold mb-2">GeoPin Reminder</h1>
+            <p class="text-gray-400">Your Smart Academic Assistant</p>
+        </header>
+
+        <div class="grid md:grid-cols-2 gap-8">
+            <!-- Reminders Section -->
+            <section class="glass-effect rounded-xl p-6">
+                <h2 class="text-2xl font-semibold mb-4">Location Reminders</h2>
+                <div id="map" class="map-container rounded-lg mb-4"></div>
+                <button onclick="addReminder()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg w-full mb-4">
+                    <i class="bi bi-pin-map-fill mr-2"></i>Add New Reminder
+                </button>
+                <div id="remindersList" class="space-y-2">
+                    <!-- Reminders will be populated here -->
+                </div>
+            </section>
+
+            <!-- Timetable Section -->
+            <section class="glass-effect rounded-xl p-6">
+                <h2 class="text-2xl font-semibold mb-4">Class Schedule</h2>
+                <div class="grid grid-cols-7 gap-2 mb-4">
+                    <div class="text-center font-medium">Mon</div>
+                    <div class="text-center font-medium">Tue</div>
+                    <div class="text-center font-medium">Wed</div>
+                    <div class="text-center font-medium">Thu</div>
+                    <div class="text-center font-medium">Fri</div>
+                    <div class="text-center font-medium">Sat</div>
+                    <div class="text-center font-medium">Sun</div>
+                </div>
+                <div id="timetable" class="space-y-2">
+                    <!-- Timetable will be populated here -->
+                </div>
+                <button onclick="addClass()" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg w-full mt-4">
+                    <i class="bi bi-plus-circle-fill mr-2"></i>Add Class
+                </button>
+            </section>
+        </div>
+    </div>
+
+    <script>
+        // Three.js Background
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ canvas: document.querySelector('.three-background'), alpha: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+
+        const geometry = new THREE.IcosahedronGeometry(1, 0);
+        const material = new THREE.MeshBasicMaterial({ color: 0x3b82f6, wireframe: true });
+        const icosahedron = new THREE.Mesh(geometry, material);
+        scene.add(icosahedron);
+
+        camera.position.z = 5;
+
+        function animate() {
+            requestAnimationFrame(animate);
+            icosahedron.rotation.x += 0.001;
+            icosahedron.rotation.y += 0.001;
+            renderer.render(scene, camera);
+        }
+        animate();
+
+        // Reminders Management
+        let reminders = [];
+        
+        function addReminder() {
+            const reminder = {
+                id: Date.now(),
+                title: prompt('Enter reminder title:'),
+                location: 'Custom Location', // In real app, this would be selected from map
+                radius: 100 // meters
+            };
+            
+            if (reminder.title) {
+                reminders.push(reminder);
+                updateRemindersUI();
+            }
+        }
+
+        function updateRemindersUI() {
+            const container = document.getElementById('remindersList');
+            container.innerHTML = reminders.map(reminder => `
+                <div class="bg-gray-800 p-4 rounded-lg">
+                    <h3 class="font-medium">${reminder.title}</h3>
+                    <p class="text-sm text-gray-400">${reminder.location}</p>
+                </div>
+            `).join('');
+        }
+
+        // Timetable Management
+        let classes = [];
+        
+        function addClass() {
+            const newClass = {
+                id: Date.now(),
+                name: prompt('Enter class name:'),
+                time: '09:00 AM', // In real app, this would be selected via time picker
+                room: 'Room 101'
+            };
+            
+            if (newClass.name) {
+                classes.push(newClass);
+                updateTimetableUI();
+            }
+        }
+
+        function updateTimetableUI() {
+            const container = document.getElementById('timetable');
+            container.innerHTML = classes.map(class_ => `
+                <div class="bg-gray-800 p-4 rounded-lg">
+                    <h3 class="font-medium">${class_.name}</h3>
+                    <p class="text-sm text-gray-400">${class_.time} - ${class_.room}</p>
+                </div>
+            `).join('');
+        }
+
+        // Initialize Google Maps
+        window.initMap = function() {
+            const map = new google.maps.Map(document.getElementById('map'), {
+                center: { lat: -34.397, lng: 150.644 },
+                zoom: 8,
+                styles: [
+                    { elementType: "geometry", stylers: [{ color: "#242f3e" }] },
+                    { elementType: "labels.text.stroke", stylers: [{ color: "#242f3e" }] },
+                    { elementType: "labels.text.fill", stylers: [{ color: "#746855" }] }
+                ]
+            });
+        };
+
+        // Handle window resize
+        window.addEventListener('resize', () => {
+            const canvas = renderer.domElement;
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
+    <script async defer src="https://maps.googleapis.com/maps/api/js?key=YOUR_API_KEY&callback=initMap"></script>
+<script>document.body.addEventListener('wheel', e => { if (!e.ctrlKey) return; e.preventDefault(); return }, { passive: false })</script>
+	</body>
+</html>
